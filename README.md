@@ -22,7 +22,7 @@ This figure adds nuance by breaking each genre into all four Bechdel outcomes, s
 Here, audience response enters the picture. This plot tests whether films with stronger representation are rated differently, revealing that inclusivity and popularity largely overlap.
 
 5. Genre Distribution by IMDb Rating and Movie Count (Bubble Chart)
-This visualization introduces scale and reach. Bubble size shows how widely each genre’s stories circulate, while position reflects average audience ratings—highlighting which genres shape cultural norms most strongly.
+This visualization introduces scale and reach. Bubble size shows how widely each genre’s stories circulate, while position reflects average audience ratings, highlighting which genres shape cultural norms most strongly.
 
 6. Bechdel Score Distributions by Selected Genres (Mini Bar Charts)
 Now zoom in. These small multiples use balanced samples to compare how representation patterns differ within individual high- and low-rated genres.
