@@ -25,9 +25,9 @@ Here, audience response enters the picture. This plot tests whether films with s
 This visualization introduces scale and reach. Bubble size shows how widely each genre’s stories circulate, while position reflects average audience ratings, highlighting which genres shape cultural norms most strongly.
 
 6. Bechdel Score Distributions by Selected Genres (Mini Bar Charts)
-Now zoom in. These small multiples use balanced samples to compare how representation patterns differ within individual high- and low-rated genres.
+Now zoom in. These small multiples use balanced samples to compare how representation patterns differ within individual high and low rated genres.
 
 7. IMDb Ratings and Bechdel Pass Rates by Genre and Decade (Heatmap)
 Finally, everything comes together. This heatmap combines time, genre, and audience reception, revealing a patchwork of progress shaped by history and storytelling conventions.
 
-All visuals are generated using Python (Pandas, Plotly, Matplotlib/Seaborn) and are fully reproducible from the provided notebooks and datasets.
+All visuals are generated using Python (Pandas, Plotly, Matplotlib/Seaborn) and are fully reproducible from the provided notebooks and datasets. All the above visuals can be viewed in static png format in the bechdel test visuals folder
