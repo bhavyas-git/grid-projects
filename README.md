@@ -30,4 +30,4 @@ Now zoom in. These small multiples use balanced samples to compare how represent
 7. IMDb Ratings and Bechdel Pass Rates by Genre and Decade (Heatmap)
 Finally, everything comes together. This heatmap combines time, genre, and audience reception, revealing a patchwork of progress shaped by history and storytelling conventions.
 
-All visuals are generated using Python (Pandas, Plotly, Matplotlib/Seaborn) and are fully reproducible from the provided notebooks and datasets. All the above visuals can be viewed in static png format in the bechdel test visuals folder.
+All visuals are generated using Python (Pandas, Plotly, Matplotlib/Seaborn) and are fully reproducible from the provided notebooks and datasets. All the above visuals can be viewed in static png format in the [bechdel test visuals](https://github.com/bhavyas-git/grid-projects/tree/main/Beckdel%20Test%20Visuals) folder.
