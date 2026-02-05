@@ -2,7 +2,7 @@
 
 This repository consists of code made to analyze and visualize women's representation in film in a clean and well formated way. The files should be viewed in conjunction with this [blog post](https://github.com/bhavyas-git/grid-projects/blob/main/Women's%20Representation%20in%20Film%20Blog.pdf) for optimal interpretation.
 
-I acquired my dataset (click [here](https://github.com/bhavyas-git/grid-projects/blob/main/scrape_result.csv) to view it) from this [website](https://bechdeltest.com/) using this [API documentation](https://bechdeltest.com/api/v1/doc)
+I acquired my dataset (click [here](https://github.com/bhavyas-git/grid-projects/blob/main/result.csv) to view it) from this [website](https://bechdeltest.com/) using this [API documentation](https://bechdeltest.com/api/v1/doc)
 This dataset came with imdb ids, movie titles, Beckdel ratings and year of release. For more features to use in analysis I have scraped the official imdb website using the imdb ids to get genres, imdb ratings and descriptions of each movie. scraped dataset (click [here](https://github.com/bhavyas-git/grid-projects/blob/main/beckdel_allinfo_final.csv) to view it) is already provided for ease of execution but can be reproduced using this [scrape_bechdel.ipynb](https://github.com/bhavyas-git/grid-projects/blob/main/scrape_bechdel.ipynb) file. 
 
 Next we do some data processing and preperation after which we have a set of interactive and static visualizations designed to analyze the relationship between IMDb ratings, movie genres, and Bechdel Test performance across a 10644 movie dataset. These can be found in the order below in the [visuals_bechdel.ipynb](https://github.com/bhavyas-git/grid-projects/blob/main/visuals_bechdel.ipynb) file
