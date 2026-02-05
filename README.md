@@ -1,8 +1,8 @@
 # grid-projects
 
-This repository consists of code made to analyze and visualize women's representation in film in a clean and well formated way. The files should be viewed in conjunction with this [blog post](https://docs.google.com/document/d/1gGLN_E5kb8IsfHNfaSA7gzq6JxxsudrMUqM04R5zp24/edit?tab=t.0) for optimal interpretation.
+This repository consists of code made to analyze and visualize women's representation in film in a clean and well formated way. The files should be viewed in conjunction with this [blog post](https://github.com/bhavyas-git/grid-projects/blob/main/Women's%20Representation%20in%20Film%20Blog.pdf) for optimal interpretation.
 
-I acquired my dataset from this [website](https://bechdeltest.com/) using this [API documentation](https://bechdeltest.com/api/v1/doc)
+I acquired my dataset from this [website](https://bechdeltest.com/) (result.csv) using this [API documentation](https://bechdeltest.com/api/v1/doc)
 This dataset came with imdb ids, movie titles, Beckdel ratings and year of release. For more features to use in analysis I have scraped the official imdb website using the imdb ids to get genres, imdb ratings and descriptions of each movie. The code for this web scrapping is in the scrape_bechdel.ipynb file. 
 
 Next we do some data processing and preperation after which we have a set of interactive and static visualizations designed to analyze the relationship between IMDb ratings, movie genres, and Bechdel Test performance across a 10644 movie dataset. These can be found in the order below in the visuals_bechdel.ipynb file
@@ -30,4 +30,4 @@ Now zoom in. These small multiples use balanced samples to compare how represent
 7. IMDb Ratings and Bechdel Pass Rates by Genre and Decade (Heatmap)
 Finally, everything comes together. This heatmap combines time, genre, and audience reception, revealing a patchwork of progress shaped by history and storytelling conventions.
 
-All visuals are generated using Python (Pandas, Plotly, Matplotlib/Seaborn) and are fully reproducible from the provided notebooks and datasets. All the above visuals can be viewed in static png format in the bechdel test visuals folder
+All visuals are generated using Python (Pandas, Plotly, Matplotlib/Seaborn) and are fully reproducible from the provided notebooks and datasets. All the above visuals can be viewed in static png format in the bechdel test visuals folder. scraped dataset is already provided for ease of execution but can be reproduced using scrape_bechdel.ipynb. 
