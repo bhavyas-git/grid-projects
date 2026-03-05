@@ -1,0 +1,61 @@
+============================================================
+<== Training Started ==>
+Model: efficient_net
+Timestamp: 20260304_102517
+Device: mps
+modification: native resolution with clean balanced test
+============================================================
+
+Epoch 1/10
+Train Acc: 49.28%
+Val Acc:   61.39%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 61.33%
+Val Acc:   66.90%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 65.95%
+Val Acc:   70.99%
+✅ New best model saved
+
+Epoch 4/10
+Train Acc: 69.03%
+Val Acc:   74.92%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 72.29%
+Val Acc:   77.68%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 75.05%
+Val Acc:   80.71%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 77.73%
+Val Acc:   83.19%
+✅ New best model saved
+
+Epoch 8/10
+Train Acc: 80.16%
+Val Acc:   85.45%
+✅ New best model saved
+
+Epoch 9/10
+Train Acc: 82.05%
+Val Acc:   86.77%
+✅ New best model saved
+
+Epoch 10/10
+Train Acc: 83.23%
+Val Acc:   87.16%
+✅ New best model saved
+============================================================
+Training Finished
+Best Validation Accuracy: 87.16%
+============================================================

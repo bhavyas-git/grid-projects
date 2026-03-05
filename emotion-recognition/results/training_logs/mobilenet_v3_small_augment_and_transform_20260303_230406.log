@@ -1,0 +1,60 @@
+============================================================
+<== Training Started ==>
+Model: mobilenet_v3_small
+Timestamp: 20260303_230406
+Device: mps
+modification: adding transforms in dataset.py for the augmented data
+============================================================
+
+Epoch 1/10
+Train Acc: 47.49%
+Val Acc:   53.47%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 58.29%
+Val Acc:   57.50%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 61.79%
+Val Acc:   60.35%
+✅ New best model saved
+
+Epoch 4/10
+Train Acc: 64.73%
+Val Acc:   61.19%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 66.88%
+Val Acc:   61.84%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 68.91%
+Val Acc:   62.48%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 70.77%
+Val Acc:   62.61%
+✅ New best model saved
+
+Epoch 8/10
+Train Acc: 71.88%
+Val Acc:   63.62%
+✅ New best model saved
+
+Epoch 9/10
+Train Acc: 73.20%
+Val Acc:   64.77%
+✅ New best model saved
+
+Epoch 10/10
+Train Acc: 73.61%
+Val Acc:   63.85%
+============================================================
+Training Finished
+Best Validation Accuracy: 64.77%
+============================================================

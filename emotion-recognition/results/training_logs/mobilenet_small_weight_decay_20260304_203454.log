@@ -1,0 +1,61 @@
+============================================================
+<== Training Started ==>
+Model: mobilenet_small
+Timestamp: 20260304_203454
+Device: mps
+modification: weight decay of 0.05 and learning rate 1e-4 in adamW optimizer
+============================================================
+
+Epoch 1/10
+Train Acc: 40.95%
+Val Acc:   50.18%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 53.25%
+Val Acc:   57.13%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 57.15%
+Val Acc:   60.38%
+✅ New best model saved
+
+Epoch 4/10
+Train Acc: 59.63%
+Val Acc:   62.44%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 61.67%
+Val Acc:   64.29%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 63.02%
+Val Acc:   65.39%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 64.21%
+Val Acc:   65.99%
+✅ New best model saved
+
+Epoch 8/10
+Train Acc: 64.69%
+Val Acc:   66.64%
+✅ New best model saved
+
+Epoch 9/10
+Train Acc: 65.55%
+Val Acc:   67.12%
+✅ New best model saved
+
+Epoch 10/10
+Train Acc: 65.44%
+Val Acc:   67.36%
+✅ New best model saved
+============================================================
+Training Finished
+Best Validation Accuracy: 67.36%
+============================================================

@@ -1,0 +1,61 @@
+============================================================
+<== Training Started ==>
+Model: mobilenet_small
+Timestamp: 20260305_073549
+Device: mps
+modifications: early stopping implemented without transforms
+============================================================
+
+Epoch 1/10
+Train Acc: 32.95%
+Val Acc:   42.36%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 44.76%
+Val Acc:   50.52%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 50.33%
+Val Acc:   56.68%
+✅ New best model saved
+
+Epoch 4/10
+Train Acc: 54.85%
+Val Acc:   60.77%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 59.61%
+Val Acc:   67.82%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 64.03%
+Val Acc:   72.70%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 67.91%
+Val Acc:   77.51%
+✅ New best model saved
+
+Epoch 8/10
+Train Acc: 71.92%
+Val Acc:   80.98%
+✅ New best model saved
+
+Epoch 9/10
+Train Acc: 74.54%
+Val Acc:   82.83%
+✅ New best model saved
+
+Epoch 10/10
+Train Acc: 75.55%
+Val Acc:   83.37%
+✅ New best model saved
+============================================================
+Training Finished
+Best Validation Accuracy: 83.37%
+============================================================

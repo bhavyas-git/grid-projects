@@ -1,0 +1,61 @@
+============================================================
+<== Training Started ==>
+Model: mobilenet_small
+Timestamp: 20260304_234209
+Device: mps
+modification: focal loss gamma = 0 in criterion
+============================================================
+
+Epoch 1/10
+Train Acc: 47.84%
+Val Acc:   55.63%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 57.78%
+Val Acc:   62.04%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 61.68%
+Val Acc:   62.57%
+✅ New best model saved
+
+Epoch 4/10
+Train Acc: 64.48%
+Val Acc:   67.15%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 66.89%
+Val Acc:   69.37%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 68.62%
+Val Acc:   71.85%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 70.34%
+Val Acc:   73.45%
+✅ New best model saved
+
+Epoch 8/10
+Train Acc: 71.99%
+Val Acc:   74.62%
+✅ New best model saved
+
+Epoch 9/10
+Train Acc: 72.95%
+Val Acc:   75.20%
+✅ New best model saved
+
+Epoch 10/10
+Train Acc: 73.74%
+Val Acc:   75.34%
+✅ New best model saved
+============================================================
+Training Finished
+Best Validation Accuracy: 75.34%
+============================================================

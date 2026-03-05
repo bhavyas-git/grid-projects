@@ -1,0 +1,61 @@
+============================================================
+<== Training Started ==>
+Model: vit_small
+Timestamp: 20260304_113716
+Device: mps
+modification: native resolution with clean balanced test
+============================================================
+
+Epoch 1/10
+Train Acc: 27.08%
+Val Acc:   41.91%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 47.76%
+Val Acc:   51.26%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 53.95%
+Val Acc:   56.68%
+✅ New best model saved
+
+Epoch 4/10
+Train Acc: 58.32%
+Val Acc:   60.76%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 61.76%
+Val Acc:   63.47%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 64.75%
+Val Acc:   66.81%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 67.86%
+Val Acc:   68.44%
+✅ New best model saved
+
+Epoch 8/10
+Train Acc: 70.74%
+Val Acc:   72.40%
+✅ New best model saved
+
+Epoch 9/10
+Train Acc: 73.02%
+Val Acc:   74.63%
+✅ New best model saved
+
+Epoch 10/10
+Train Acc: 75.02%
+Val Acc:   75.19%
+✅ New best model saved
+============================================================
+Training Finished
+Best Validation Accuracy: 75.19%
+============================================================
