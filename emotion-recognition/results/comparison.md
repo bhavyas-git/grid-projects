@@ -1,0 +1,77 @@
+# Model Comparison
+
+This table compares the final performance of the three architectures evaluated in this project:
+
+- MobileNetV3 Small
+- EfficientNet-B0
+- ViT Small
+
+The **primary evaluation metric is Macro F1 Score**, since the FER2013 dataset contains class imbalance and Macro F1 treats all classes equally.
+
+---
+
+# Overall Performance
+
+| Model | Accuracy | Macro F1 (Primary) | Balanced Accuracy |
+|------|------|------|------|
+| MobileNetV3 Small | 0.6651 | 0.6395 | 0.6314 |
+| EfficientNet-B0 | **0.6955** | **0.6729** | **0.6668** |
+| ViT Small | 0.6672 | 0.6465 | 0.6427 |
+
+### Best Model
+🏆 **EfficientNet-B0** achieved the best performance across all metrics.
+
+---
+
+# Per-Class Accuracy Comparison
+
+| Emotion | MobileNetV3 | EfficientNet-B0 | ViT Small |
+|------|------|------|------|
+| Angry | 0.5720 | **0.6106** | 0.5605 |
+| Disgust | 0.5225 | **0.5856** | **0.5856** |
+| Fear | 0.3926 | **0.4961** | 0.4902 |
+| Happy | 0.8585 | **0.8884** | 0.8613 |
+| Neutral | 0.6845 | **0.6910** | 0.6723 |
+| Sad | 0.5870 | **0.5910** | 0.5373 |
+| Surprise | 0.8026 | **0.8051** | 0.7918 |
+
+---
+
+# Observations
+
+### EfficientNet-B0
+- Achieved the **highest overall accuracy and Macro F1**
+- Best performance on **most emotion classes**
+- Strong CNN feature extraction improves recognition of subtle facial patterns.
+
+### MobileNetV3 Small
+- Slightly lower accuracy but **much lighter architecture**
+- Suitable for **real-time inference and deployment**.
+
+### ViT Small
+- Performance comparable to MobileNetV3
+- Transformer architecture captures **global relationships between facial features**
+- Requires **larger input resolution and more compute**.
+
+---
+
+# Key Misclassifications
+
+Across all models, common confusions include:
+
+- **Fear ↔ Surprise**
+- **Sad ↔ Neutral**
+- **Angry ↔ Disgust**
+
+These errors occur because these expressions share similar facial features in low-resolution FER2013 images.
+
+---
+
+# Conclusion
+
+Among the evaluated architectures:
+
+🏆 **EfficientNet-B0 provides the best overall classification performance**,  
+while **MobileNetV3 Small offers the best efficiency for real-time applications**.
+
+ViT Small demonstrates competitive results but requires more computational resources.
