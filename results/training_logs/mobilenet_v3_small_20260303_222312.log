@@ -1,0 +1,59 @@
+============================================================
+<== Training Started ==>
+Model: mobilenet_v3_small
+Timestamp: 20260303_222312
+Device: mps
+modification: default model with no finetuning
+============================================================
+
+Epoch 1/10
+Train Acc: 30.81%
+Val Acc:   34.12%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 41.87%
+Val Acc:   43.16%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 47.96%
+Val Acc:   46.10%
+✅ New best model saved
+
+Epoch 4/10
+Train Acc: 53.37%
+Val Acc:   47.91%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 57.76%
+Val Acc:   49.37%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 62.46%
+Val Acc:   49.72%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 67.38%
+Val Acc:   49.11%
+
+Epoch 8/10
+Train Acc: 71.60%
+Val Acc:   50.24%
+✅ New best model saved
+
+Epoch 9/10
+Train Acc: 75.23%
+Val Acc:   50.50%
+✅ New best model saved
+
+Epoch 10/10
+Train Acc: 76.32%
+Val Acc:   50.43%
+============================================================
+Training Finished
+Best Validation Accuracy: 50.50%
+============================================================

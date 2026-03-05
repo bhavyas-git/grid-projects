@@ -1,0 +1,46 @@
+============================================================
+<== Training Started ==>
+Model: vit_small
+Timestamp: 20260305_151646
+Device: mps
+modification: focal loss gamma = 2 with class weight computation
+============================================================
+
+Epoch 1/10
+Train Acc: 40.61%
+Val Acc:   53.67%
+✅ New best model saved
+
+Epoch 2/10
+Train Acc: 54.88%
+Val Acc:   58.41%
+✅ New best model saved
+
+Epoch 3/10
+Train Acc: 59.00%
+Val Acc:   57.38%
+
+Epoch 4/10
+Train Acc: 62.86%
+Val Acc:   64.03%
+✅ New best model saved
+
+Epoch 5/10
+Train Acc: 65.77%
+Val Acc:   66.60%
+✅ New best model saved
+
+Epoch 6/10
+Train Acc: 69.09%
+Val Acc:   71.87%
+✅ New best model saved
+
+Epoch 7/10
+Train Acc: 72.59%
+Val Acc:   75.18%
+✅ New best model saved
+
+Epoch 8/10
+Train Acc: 76.41%
+Val Acc:   78.67%
+✅ New best model saved
