@@ -1,14 +1,3 @@
----
-title: Emotion Recognition Fairness Dashboard
-emoji: 🎥
-colorFrom: yellow
-colorTo: blue
-sdk: gradio
-sdk_version: 4.44.1
-python_version: 3.11
-app_file: app.py
-pinned: false
----
 
 # Facial Emotion Recognition
 
@@ -94,41 +83,12 @@ after running open the given local host in browser.
 
 This repo is now configured for direct deployment to a Gradio Space.
 
-Live Space URL:
-- https://huggingface.co/spaces/bhavyagrid/Emotion_Recognition
-- https://bhavyagrid-emotion-recognition.hf.space
+Live Space URL: https://bhavyagrid-emotion-recognition.hf.space
 
 Files added for deployment:
 - `app.py` as the Space entrypoint
 - `packages.txt` for OpenCV/video system libraries
 - YAML metadata at the top of this README for Space configuration
-
-Model deployment note:
-- the Space should not store `mobilenet_best.pth` inside the Space repo
-- instead, upload the checkpoint to a separate Hugging Face model repo
-- then set the Space variable `HF_MODEL_REPO_ID` to that model repo name
-- optional: set `HF_MODEL_FILE` if the filename is not `mobilenet_best.pth`
-- optional: set `HF_TOKEN` only if the model repo is private
-
-Deploy steps:
-```bash
-git init
-git add .
-git commit -m "Prepare Gradio app for Hugging Face Spaces"
-git remote add origin https://huggingface.co/spaces/<your-username>/<space-name>
-git push -u origin main
-```
-
-On Hugging Face, create a new Space with:
-- SDK: `Gradio`
-- Hardware: `CPU Basic` is sufficient to start
-
-Recommended model repo setup:
-```text
-Repo type: Model
-Repo name: emotion-recognition-checkpoints
-File to upload: mobilenet_best.pth
-```
 
 # File Structure
 
