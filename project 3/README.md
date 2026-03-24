@@ -4,6 +4,7 @@
 A deep learning project for **facial emotion recognition** using the **FER2013 dataset**.  
 The system classifies facial expressions into emotion categories and includes a **real-time emotion detection dashboard built with Gradio**.
 
+Live Dashboard URL: https://bhavyagrid-emotion-recognition.hf.space
 ---
 
 # Overview
