@@ -1,0 +1,79 @@
+==================================================
+Strategy: focal
+Model: efficientnet
+Device: mps
+Start Memory: 431.77 MB
+==================================================
+
+Epoch 1/10
+Train Loss: 0.8569
+Train Acc: 48.59%
+Val Acc:   61.48%
+Macro F1:  0.5151
+✅ New best model saved
+
+Epoch 2/10
+Train Loss: 0.6299
+Train Acc: 59.55%
+Val Acc:   64.61%
+Macro F1:  0.5720
+✅ New best model saved
+
+Epoch 3/10
+Train Loss: 0.5564
+Train Acc: 62.79%
+Val Acc:   66.65%
+Macro F1:  0.6169
+✅ New best model saved
+
+Epoch 4/10
+Train Loss: 0.5042
+Train Acc: 65.37%
+Val Acc:   67.58%
+Macro F1:  0.6378
+✅ New best model saved
+
+Epoch 5/10
+Train Loss: 0.4477
+Train Acc: 68.14%
+Val Acc:   68.31%
+Macro F1:  0.6609
+✅ New best model saved
+
+Epoch 6/10
+Train Loss: 0.4021
+Train Acc: 70.57%
+Val Acc:   68.78%
+Macro F1:  0.6692
+✅ New best model saved
+
+Epoch 7/10
+Train Loss: 0.3632
+Train Acc: 72.25%
+Val Acc:   69.39%
+Macro F1:  0.6773
+✅ New best model saved
+
+Epoch 8/10
+Train Loss: 0.3245
+Train Acc: 74.54%
+Val Acc:   70.38%
+Macro F1:  0.6928
+✅ New best model saved
+
+Epoch 9/10
+Train Loss: 0.3002
+Train Acc: 75.91%
+Val Acc:   70.16%
+Macro F1:  0.6901
+
+Epoch 10/10
+Train Loss: 0.2873
+Train Acc: 76.45%
+Val Acc:   70.35%
+Macro F1:  0.6937
+
+==================================================
+Training Time: 2247.54 sec
+Memory Used: 666.06 MB
+==================================================

@@ -1,0 +1,37 @@
+=== FOCAL ===
+
+angry:
+  Precision: 0.6176
+  Recall: 0.6660
+  F1-score: 0.6409
+
+disgust:
+  Precision: 0.8085
+  Recall: 0.6847
+  F1-score: 0.7415
+
+fear:
+  Precision: 0.5786
+  Recall: 0.4707
+  F1-score: 0.5191
+
+happy:
+  Precision: 0.8753
+  Recall: 0.9019
+  F1-score: 0.8884
+
+sad:
+  Precision: 0.6559
+  Recall: 0.6926
+  F1-score: 0.6738
+
+surprise:
+  Precision: 0.5905
+  Recall: 0.5758
+  F1-score: 0.5830
+
+neutral:
+  Precision: 0.7844
+  Recall: 0.8231
+  F1-score: 0.8033
+

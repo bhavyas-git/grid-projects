@@ -1,0 +1,79 @@
+==================================================
+Model: mobilenet_cross_entropy
+Device: mps
+Start Memory: 433.12 MB
+==================================================
+
+Epoch 1/10
+Train Loss: 1.3359
+Train Acc: 48.72%
+Val Acc:   58.05%
+Macro F1:  0.4912
+✅ New best model saved
+
+Epoch 2/10
+Train Loss: 1.1158
+Train Acc: 58.06%
+Val Acc:   61.34%
+Macro F1:  0.5422
+✅ New best model saved
+
+Epoch 3/10
+Train Loss: 1.0368
+Train Acc: 61.21%
+Val Acc:   63.42%
+Macro F1:  0.5733
+✅ New best model saved
+
+Epoch 4/10
+Train Loss: 0.9764
+Train Acc: 63.39%
+Val Acc:   64.60%
+Macro F1:  0.5843
+✅ New best model saved
+
+Epoch 5/10
+Train Loss: 0.9293
+Train Acc: 65.11%
+Val Acc:   66.44%
+Macro F1:  0.6253
+✅ New best model saved
+
+Epoch 6/10
+Train Loss: 0.8834
+Train Acc: 66.77%
+Val Acc:   66.41%
+Macro F1:  0.6247
+
+Epoch 7/10
+Train Loss: 0.8389
+Train Acc: 68.31%
+Val Acc:   66.58%
+Macro F1:  0.6315
+✅ New best model saved
+
+Epoch 8/10
+Train Loss: 0.7931
+Train Acc: 70.66%
+Val Acc:   67.62%
+Macro F1:  0.6425
+✅ New best model saved
+
+Epoch 9/10
+Train Loss: 0.7779
+Train Acc: 70.95%
+Val Acc:   67.85%
+Macro F1:  0.6456
+✅ New best model saved
+
+Epoch 10/10
+Train Loss: 0.7606
+Train Acc: 71.41%
+Val Acc:   67.96%
+Macro F1:  0.6504
+✅ New best model saved
+
+==================================================
+Training Time: 788.70 sec
+Memory Used: 514.23 MB
+==================================================
