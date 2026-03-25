@@ -1,0 +1,80 @@
+==================================================
+Model: mobilenet
+Device: mps
+Start Memory: 417.17 MB
+==================================================
+
+Epoch 1/10
+Train Loss: 0.8697
+Train Acc: 47.89%
+Val Acc:   57.61%
+Macro F1:  0.4708
+✅ New best model saved
+
+Epoch 2/10
+Train Loss: 0.6747
+Train Acc: 57.15%
+Val Acc:   59.88%
+Macro F1:  0.4961
+✅ New best model saved
+
+Epoch 3/10
+Train Loss: 0.6136
+Train Acc: 59.80%
+Val Acc:   60.21%
+Macro F1:  0.5588
+✅ New best model saved
+
+Epoch 4/10
+Train Loss: 0.5643
+Train Acc: 62.00%
+Val Acc:   64.06%
+Macro F1:  0.5723
+✅ New best model saved
+
+Epoch 5/10
+Train Loss: 0.5309
+Train Acc: 63.83%
+Val Acc:   64.10%
+Macro F1:  0.5899
+✅ New best model saved
+
+Epoch 6/10
+Train Loss: 0.4922
+Train Acc: 65.54%
+Val Acc:   65.85%
+Macro F1:  0.6213
+✅ New best model saved
+
+Epoch 7/10
+Train Loss: 0.4675
+Train Acc: 67.37%
+Val Acc:   66.09%
+Macro F1:  0.6209
+✅ New best model saved
+
+Epoch 8/10
+Train Loss: 0.4404
+Train Acc: 68.27%
+Val Acc:   66.86%
+Macro F1:  0.6317
+✅ New best model saved
+
+Epoch 9/10
+Train Loss: 0.4221
+Train Acc: 69.24%
+Val Acc:   67.18%
+Macro F1:  0.6405
+✅ New best model saved
+
+Epoch 10/10
+Train Loss: 0.4120
+Train Acc: 69.89%
+Val Acc:   67.43%
+Macro F1:  0.6424
+✅ New best model saved
+
+==================================================
+Training Time: 779.94 sec
+Memory Used: 492.06 MB
+==================================================
