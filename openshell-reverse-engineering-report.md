@@ -196,7 +196,13 @@ async fn run_policy_poll_loop(
 }
 ```
 
-Citation: `crates/openshell-sandbox/src/lib.rs`
+What this snippet shows:
+
+- the sandbox keeps a persistent connection context with `CachedOpenShellClient`,
+- it compares `config_revision` so it does not reload on every poll,
+- it separately checks `policy_hash` so settings-only changes do not force OPA replacement,
+- it calls `reload_from_proto(policy)` only when the policy actually changed,
+- on failure it explicitly keeps the last-known-good policy rather than forcing a restart.
 
 Snippet 2 is the server-side deterministic hash from `crates/openshell-server/src/grpc.rs`:
 
@@ -226,7 +232,11 @@ fn deterministic_policy_hash(policy: &ProtoSandboxPolicy) -> String {
 }
 ```
 
-Citation: `crates/openshell-server/src/grpc.rs`
+Why this code matters:
+
+- `network_policies` is a map, so sorting by key avoids nondeterministic hashing,
+- stable hashing is what makes idempotent hot reload practical,
+- without this, equivalent policies could appear different and trigger unnecessary reloads.
 
 ### Q3. How does OpenShell's credential swapping mechanism prevent agents from accessing credentials outside their authorization scope?
 
@@ -305,7 +315,13 @@ async fn resolve_provider_environment(
 }
 ```
 
-Citation: `crates/openshell-server/src/grpc.rs`
+What each part means:
+
+- `provider_names` is the sandbox-scoped allowlist of which providers are even eligible,
+- the gateway fetches only those providers from persistent storage,
+- only `provider.credentials` are injected, not arbitrary provider config,
+- `env.entry(...).or_insert_with(...)` implements the “first provider wins” rule,
+- invalid environment keys are skipped instead of being injected unsafely.
 
 Snippet 2 is sandbox-side placeholder conversion from `crates/openshell-sandbox/src/secrets.rs`:
 
@@ -337,9 +353,14 @@ impl SecretResolver {
 }
 ```
 
-Citation: `crates/openshell-sandbox/src/secrets.rs`
+Why this snippet is the core of the mechanism:
 
-Snippet 3 is the test proving that transformation from the same file:
+- `provider_env` starts with real secrets,
+- `child_env` becomes the environment passed to the child process,
+- `child_env` stores placeholders instead of real values,
+- `by_placeholder` remains supervisor-private and keeps the actual credential mapping.
+
+Snippet 3 is the test proving that transformation from the same file `crates/openshell-sandbox/src/secrets.rs`:
 
 ```rust
 #[test]
@@ -366,7 +387,10 @@ fn provider_env_is_replaced_with_placeholders() {
 }
 ```
 
-Citation: `crates/openshell-sandbox/src/secrets.rs`
+This test is useful because it proves both halves of the design at once:
+
+- the child sees only the placeholder,
+- the supervisor can still resolve it back to the real secret when needed.
 
 ### Q4. Why does OpenShell containerize policy execution rather than running policies in-process with the orchestrator?
 
@@ -452,7 +476,11 @@ struct PolicyFile {
 }
 ```
 
-Citation: `crates/openshell-policy/src/lib.rs`
+What this means:
+
+- `PolicyFile` is the human-authorable schema surface,
+- `deny_unknown_fields` makes the YAML strict and predictable,
+- the top-level fields are semantic categories, not enforcement implementation details.
 
 Snippet 2 is the protobuf contract from `proto/sandbox.proto`:
 
@@ -471,7 +499,11 @@ message SandboxPolicy {
 }
 ```
 
-Citation: `proto/sandbox.proto`
+Why this snippet matters:
+
+- this is the transport and storage contract used across the system,
+- it mirrors the same semantic policy domains seen in the YAML schema,
+- the schema says *what* should be controlled, not *how* the runtime will enforce it.
 
 Snippet 3 is the enforcement-side conversion into the OPA engine from `crates/openshell-sandbox/src/opa.rs`:
 
@@ -496,7 +528,12 @@ pub fn from_proto(proto: &ProtoSandboxPolicy) -> Result<Self> {
 }
 ```
 
-Citation: `crates/openshell-sandbox/src/opa.rs`
+This snippet shows the architectural separation directly:
+
+- the policy is defined as typed data first,
+- then validated and normalized,
+- then loaded into a specific enforcement backend,
+- meaning the policy contract can stay stable even if enforcement details evolve.
 
 ### Q6. Why does OpenShell require explicit agent authorization declarations rather than inferring permissions from runtime behavior?
 
@@ -626,7 +663,12 @@ pub fn reload_from_proto(&self, proto: &ProtoSandboxPolicy) -> Result<()> {
 }
 ```
 
-Citation: `crates/openshell-sandbox/src/opa.rs`
+Why this snippet matters:
+
+- the new policy engine is fully built first,
+- only then is the live engine replaced,
+- the critical section is just the final assignment,
+- that minimizes the chance of mixed old/new evaluation state.
 
 Snippet 2 is the last-known-good behavior from `crates/openshell-sandbox/src/lib.rs`:
 
@@ -647,7 +689,11 @@ match opa_engine.reload_from_proto(policy) {
 }
 ```
 
-Citation: `crates/openshell-sandbox/src/lib.rs`
+This is the operational guarantee:
+
+- policy replacement is all-or-nothing for future evaluations,
+- a broken update does not half-apply,
+- active sandboxes stay on a coherent previous state if reload fails.
 
 ### Q10. How does OpenShell's multi-layer security approach address different attacker models better than single-layer enforcement?
 
@@ -702,7 +748,10 @@ connection attempts must be rejected.
 """
 ```
 
-Citation: `e2e/python/test_security_tls.py`
+Why this snippet matters:
+
+- it shows the repository explicitly tests the “unauthorized client” attacker model,
+- transport authentication is treated as a first-class security boundary, not just a deployment detail.
 
 Snippet 2 is the SSRF/internal-IP defense from `crates/openshell-sandbox/src/proxy.rs`:
 
@@ -725,7 +774,10 @@ fn is_internal_ip(ip: IpAddr) -> bool {
 }
 ```
 
-Citation: `crates/openshell-sandbox/src/proxy.rs`
+This snippet is important because it demonstrates a more nuanced attacker model:
+
+- not just “is this hostname allowed,”
+- but also “does this resolve to loopback/private/internal space and therefore look like SSRF or lateral movement?”
 
 Snippet 3 is the direct-proxy-bypass detection from `crates/openshell-sandbox/src/bypass_monitor.rs`:
 
@@ -747,7 +799,11 @@ warn!(
 );
 ```
 
-Citation: `crates/openshell-sandbox/src/bypass_monitor.rs`
+What this adds to the report:
+
+- OpenShell is not only filtering authorized traffic,
+- it is also trying to catch processes that attempt to route *around* the intended enforcement path,
+- which is exactly why the attacker-model table includes malicious tooling and bypass attempts as separate cases.
 
 ## 3. Findings and Conclusion
 
