@@ -98,16 +98,16 @@ The main report is [openshell-reverse-engineering-report.md](./openshell-reverse
 
 Question links:
 
-1. [Q1. Why OpenShell uses layered security with multiple enforcement points](./openshell-reverse-engineering-report.md#q1-why-does-openshell-use-layered-security-with-multiple-enforcement-points-rather-than-relying-on-a-single-security-boundary)
-2. [Q2. Why OpenShell supports hot-reloading of policies without restarting orchestrated agents](./openshell-reverse-engineering-report.md#q2-what-problem-does-openshell-solve-by-supporting-hot-reloading-of-policies-without-restarting-orchestrated-agents)
-3. [Q3. How OpenShell's credential swapping mechanism limits credential access to authorization scope](./openshell-reverse-engineering-report.md#q3-how-does-openshells-credential-swapping-mechanism-prevent-agents-from-accessing-credentials-outside-their-authorization-scope)
-4. [Q4. Why OpenShell containerizes policy execution instead of running it in-process with the orchestrator](./openshell-reverse-engineering-report.md#q4-why-does-openshell-containerize-policy-execution-rather-than-running-policies-in-process-with-the-orchestrator)
-5. [Q5. What OpenShell gains by separating policy definitions from enforcement mechanisms](./openshell-reverse-engineering-report.md#q5-what-architectural-advantage-does-openshell-gain-by-separating-policy-definitions-from-policy-enforcement-mechanisms)
-6. [Q6. Why OpenShell requires explicit authorization declarations instead of inferring permissions from runtime behavior](./openshell-reverse-engineering-report.md#q6-why-does-openshell-require-explicit-agent-authorization-declarations-rather-than-inferring-permissions-from-runtime-behavior)
-7. [Q7. How OpenShell prevents policy failures from cascading across agents](./openshell-reverse-engineering-report.md#q7-how-does-openshells-containerized-orchestration-prevent-policy-failures-from-cascading-to-other-agents)
-8. [Q8. Why OpenShell compartmentalizes credentials instead of storing them globally](./openshell-reverse-engineering-report.md#q8-what-problem-does-openshell-solve-by-compartmentalizing-credentials-rather-than-storing-them-globally)
-9. [Q9. Why policy hot-reloading must preserve coherent handling of in-flight operations](./openshell-reverse-engineering-report.md#q9-why-does-openshells-policy-hot-reloading-require-ensuring-in-flight-operations-complete-before-applying-new-policies)
-10. [Q10. How OpenShell's multi-layer approach addresses multiple attacker models better than single-layer enforcement](./openshell-reverse-engineering-report.md#q10-how-does-openshells-multi-layer-security-approach-address-different-attacker-models-better-than-single-layer-enforcement)
+1. [Why OpenShell uses layered security with multiple enforcement points](./openshell-reverse-engineering-report.md#q1-why-does-openshell-use-layered-security-with-multiple-enforcement-points-rather-than-relying-on-a-single-security-boundary)
+2. [Why OpenShell supports hot-reloading of policies without restarting orchestrated agents](./openshell-reverse-engineering-report.md#q2-what-problem-does-openshell-solve-by-supporting-hot-reloading-of-policies-without-restarting-orchestrated-agents)
+3. [How OpenShell's credential swapping mechanism limits credential access to authorization scope](./openshell-reverse-engineering-report.md#q3-how-does-openshells-credential-swapping-mechanism-prevent-agents-from-accessing-credentials-outside-their-authorization-scope)
+4. [Why OpenShell containerizes policy execution instead of running it in-process with the orchestrator](./openshell-reverse-engineering-report.md#q4-why-does-openshell-containerize-policy-execution-rather-than-running-policies-in-process-with-the-orchestrator)
+5. [What OpenShell gains by separating policy definitions from enforcement mechanisms](./openshell-reverse-engineering-report.md#q5-what-architectural-advantage-does-openshell-gain-by-separating-policy-definitions-from-policy-enforcement-mechanisms)
+6. [Why OpenShell requires explicit authorization declarations instead of inferring permissions from runtime behavior](./openshell-reverse-engineering-report.md#q6-why-does-openshell-require-explicit-agent-authorization-declarations-rather-than-inferring-permissions-from-runtime-behavior)
+7. [How OpenShell prevents policy failures from cascading across agents](./openshell-reverse-engineering-report.md#q7-how-does-openshells-containerized-orchestration-prevent-policy-failures-from-cascading-to-other-agents)
+8. [Why OpenShell compartmentalizes credentials instead of storing them globally](./openshell-reverse-engineering-report.md#q8-what-problem-does-openshell-solve-by-compartmentalizing-credentials-rather-than-storing-them-globally)
+9. [Why policy hot-reloading must preserve coherent handling of in-flight operations](./openshell-reverse-engineering-report.md#q9-why-does-openshells-policy-hot-reloading-require-ensuring-in-flight-operations-complete-before-applying-new-policies)
+10. [How OpenShell's multi-layer approach addresses multiple attacker models better than single-layer enforcement](./openshell-reverse-engineering-report.md#q10-how-does-openshells-multi-layer-security-approach-address-different-attacker-models-better-than-single-layer-enforcement)
 
 ## Suggested Reading Order
 
