@@ -153,6 +153,81 @@ The quickstart in `README.md` shows a workflow where a sandbox starts with block
 
 OpenShell deliberately limits hot reload to policy parts enforced by the proxy and OPA engine, because those can be atomically swapped at runtime. That gives fast operator response for network changes while preserving correctness for kernel-bound controls that are inherently one-way.
 
+**Code evidence**
+
+Snippet 1 is the sandbox-side poll loop from `crates/openshell-sandbox/src/lib.rs`:
+
+```rust
+async fn run_policy_poll_loop(
+    endpoint: &str,
+    sandbox_id: &str,
+    opa_engine: &Arc<OpaEngine>,
+    interval_secs: u64,
+) -> Result<()> {
+    // Reuse a cached client so policy polling does not pay a full reconnect cost each time.
+    let client = CachedOpenShellClient::connect(endpoint).await?;
+    // Track the last effective configuration and policy we have already applied.
+    let mut current_config_revision: u64 = 0;
+    let mut current_policy_hash = String::new();
+    ...
+    // If the effective config fingerprint is unchanged, there is nothing to do.
+    if result.config_revision == current_config_revision {
+        continue;
+    }
+
+    // Settings can change without the policy payload changing, so compare hashes separately.
+    let policy_changed = result.policy_hash != current_policy_hash;
+    ...
+    if policy_changed {
+        // Reload only if the gateway actually returned a policy payload.
+        let Some(policy) = result.policy.as_ref() else { ... };
+        match opa_engine.reload_from_proto(policy) {
+            Ok(()) => { ... }
+            Err(e) => {
+                // Fail closed for the new revision but keep the previous working engine active.
+                warn!(
+                    version = result.version,
+                    error = %e,
+                    "Policy reload failed, keeping last-known-good policy"
+                );
+            }
+        }
+    }
+}
+```
+
+Citation: `crates/openshell-sandbox/src/lib.rs`
+
+Snippet 2 is the server-side deterministic hash from `crates/openshell-server/src/grpc.rs`:
+
+```rust
+fn deterministic_policy_hash(policy: &ProtoSandboxPolicy) -> String {
+    let mut hasher = Sha256::new();
+    // Include scalar top-level fields first.
+    hasher.update(policy.version.to_le_bytes());
+    if let Some(fs) = &policy.filesystem {
+        hasher.update(fs.encode_to_vec());
+    }
+    if let Some(ll) = &policy.landlock {
+        hasher.update(ll.encode_to_vec());
+    }
+    if let Some(p) = &policy.process {
+        hasher.update(p.encode_to_vec());
+    }
+    // Sort map entries so logically identical policies hash the same way every time.
+    let mut entries: Vec<_> = policy.network_policies.iter().collect();
+    entries.sort_by_key(|(k, _)| k.as_str());
+    for (key, value) in entries {
+        // Hash both the key and the encoded rule contents.
+        hasher.update(key.as_bytes());
+        hasher.update(value.encode_to_vec());
+    }
+    hex::encode(hasher.finalize())
+}
+```
+
+Citation: `crates/openshell-server/src/grpc.rs`
+
 ### Q3. How does OpenShell's credential swapping mechanism prevent agents from accessing credentials outside their authorization scope?
 
 **Short answer:** credentials are attached to the sandbox by provider name, fetched at runtime, replaced with placeholders in child-process environments, and only resolved back to real values inside the supervisor-controlled outbound proxy path.
@@ -195,6 +270,103 @@ This is not merely masking for logs. It changes where secret knowledge exists:
 - policy determines whether a request carrying those credentials is even allowed.
 
 That is a stronger compartmentalization model than "inject all env vars and hope the application behaves."
+
+**Code evidence**
+
+Snippet 1 is gateway-side provider resolution from `crates/openshell-server/src/grpc.rs`:
+
+```rust
+async fn resolve_provider_environment(
+    store: &crate::persistence::Store,
+    provider_names: &[String],
+) -> Result<std::collections::HashMap<String, String>, Status> {
+    let mut env = std::collections::HashMap::new();
+
+    for name in provider_names {
+        // Only providers explicitly attached to this sandbox are even considered.
+        let provider = store
+            .get_message_by_name::<Provider>(name)
+            .await
+            ...
+            .ok_or_else(|| Status::failed_precondition(format!("provider '{name}' not found")))?;
+
+        for (key, value) in &provider.credentials {
+            if is_valid_env_key(key) {
+                // First provider wins on duplicate keys; later providers cannot silently override it.
+                env.entry(key.clone()).or_insert_with(|| value.clone());
+            } else {
+                // Reject malformed env keys instead of injecting something ambiguous or unsafe.
+                warn!(provider_name = %name, key = %key, ...);
+            }
+        }
+    }
+
+    Ok(env)
+}
+```
+
+Citation: `crates/openshell-server/src/grpc.rs`
+
+Snippet 2 is sandbox-side placeholder conversion from `crates/openshell-sandbox/src/secrets.rs`:
+
+```rust
+impl SecretResolver {
+    pub(crate) fn from_provider_env(
+        provider_env: HashMap<String, String>,
+    ) -> (HashMap<String, String>, Option<Self>) {
+        if provider_env.is_empty() {
+            return (HashMap::new(), None);
+        }
+
+        // This map is what child processes will actually receive.
+        let mut child_env = HashMap::with_capacity(provider_env.len());
+        // This map stays supervisor-side and keeps the real secrets.
+        let mut by_placeholder = HashMap::with_capacity(provider_env.len());
+
+        for (key, value) in provider_env {
+            // Convert KEY -> openshell:resolve:env:KEY
+            let placeholder = placeholder_for_env_key(&key);
+            // Child sees placeholder, not the raw secret.
+            child_env.insert(key, placeholder.clone());
+            // Supervisor retains the placeholder -> real value mapping.
+            by_placeholder.insert(placeholder, value);
+        }
+
+        (child_env, Some(Self { by_placeholder }))
+    }
+}
+```
+
+Citation: `crates/openshell-sandbox/src/secrets.rs`
+
+Snippet 3 is the test proving that transformation from the same file:
+
+```rust
+#[test]
+fn provider_env_is_replaced_with_placeholders() {
+    let (child_env, resolver) = SecretResolver::from_provider_env(
+        [("ANTHROPIC_API_KEY".to_string(), "sk-test".to_string())]
+            .into_iter()
+            .collect(),
+    );
+
+    // The child-visible env var is a placeholder token, not the API key itself.
+    assert_eq!(
+        child_env.get("ANTHROPIC_API_KEY"),
+        Some(&"openshell:resolve:env:ANTHROPIC_API_KEY".to_string())
+    );
+    // The supervisor-side resolver can still recover the original secret when needed.
+    assert_eq!(
+        resolver
+            .as_ref()
+            .and_then(|resolver| resolver
+                .resolve_placeholder("openshell:resolve:env:ANTHROPIC_API_KEY")),
+        Some("sk-test")
+    );
+}
+```
+
+Citation: `crates/openshell-sandbox/src/secrets.rs`
 
 ### Q4. Why does OpenShell containerize policy execution rather than running policies in-process with the orchestrator?
 
@@ -255,6 +427,76 @@ Containerized enforcement localizes blast radius. If one sandbox policy engine f
 **Why this matters in practice**
 
 If the project later changes from one Rego rule set to another, or introduces additional kernel restrictions, the user-facing policy language can remain stable. That lowers migration cost and reduces operator confusion.
+
+**Code evidence**
+
+Snippet 1 is the canonical YAML-side schema from `crates/openshell-policy/src/lib.rs`:
+
+```rust
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolicyFile {
+    version: u32,
+    // Human-authored filesystem intent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    filesystem_policy: Option<FilesystemDef>,
+    // Landlock compatibility setting, still expressed as data rather than enforcement code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    landlock: Option<LandlockDef>,
+    // Runtime user/group intent for the sandboxed process.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    process: Option<ProcessDef>,
+    // Declarative network rules keyed by policy name.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    network_policies: BTreeMap<String, NetworkPolicyRuleDef>,
+}
+```
+
+Citation: `crates/openshell-policy/src/lib.rs`
+
+Snippet 2 is the protobuf contract from `proto/sandbox.proto`:
+
+```proto
+message SandboxPolicy {
+  // Version metadata for policy revision tracking.
+  uint32 version = 1;
+  // Declarative filesystem rules.
+  FilesystemPolicy filesystem = 2;
+  // Declarative Landlock mode.
+  LandlockPolicy landlock = 3;
+  // Declarative process identity rules.
+  ProcessPolicy process = 4;
+  // Declarative network policy map; still data, not enforcement logic.
+  map<string, NetworkPolicyRule> network_policies = 5;
+}
+```
+
+Citation: `proto/sandbox.proto`
+
+Snippet 3 is the enforcement-side conversion into the OPA engine from `crates/openshell-sandbox/src/opa.rs`:
+
+```rust
+pub fn from_proto(proto: &ProtoSandboxPolicy) -> Result<Self> {
+    // Convert the typed protobuf policy into generic JSON data for OPA/Rego.
+    let data_json_str = proto_to_opa_data_json(proto);
+    let mut data: serde_json::Value = serde_json::from_str(&data_json_str)
+        .map_err(|e| miette::miette!("internal: failed to parse proto JSON: {e}"))?;
+
+    // Validate L7 semantics before loading anything into the live engine.
+    let (errors, warnings) = crate::l7::validate_l7_policies(&data);
+    ...
+    // Expand shorthand presets into explicit rule sets.
+    crate::l7::expand_access_presets(&mut data);
+
+    // Load the enforcement backend only after schema data is validated and normalized.
+    let mut engine = regorus::Engine::new();
+    engine.add_policy("policy.rego".into(), BAKED_POLICY_RULES.into())?;
+    engine.add_data_json(&data.to_string())?;
+    Ok(Self { engine: Mutex::new(engine) })
+}
+```
+
+Citation: `crates/openshell-sandbox/src/opa.rs`
 
 ### Q6. Why does OpenShell require explicit agent authorization declarations rather than inferring permissions from runtime behavior?
 
@@ -361,6 +603,52 @@ The repository avoids that by:
 
 OpenShell does not need to freeze the whole sandbox; it needs to ensure the policy object being used for evaluation is swapped coherently. Its versioned polling model is built around that requirement.
 
+**Code evidence**
+
+Snippet 1 is the atomic engine swap from `crates/openshell-sandbox/src/opa.rs`:
+
+```rust
+pub fn reload_from_proto(&self, proto: &ProtoSandboxPolicy) -> Result<()> {
+    // Build and validate a complete replacement engine first.
+    let new = Self::from_proto(proto)?;
+    let new_engine = new
+        .engine
+        .into_inner()
+        .map_err(|_| miette::miette!("lock poisoned on new engine"))?;
+    // Only lock the live engine for the final swap.
+    let mut engine = self
+        .engine
+        .lock()
+        .map_err(|_| miette::miette!("OPA engine lock poisoned"))?;
+    // Atomic replacement: future evaluations see either the old engine or the new one.
+    *engine = new_engine;
+    Ok(())
+}
+```
+
+Citation: `crates/openshell-sandbox/src/opa.rs`
+
+Snippet 2 is the last-known-good behavior from `crates/openshell-sandbox/src/lib.rs`:
+
+```rust
+match opa_engine.reload_from_proto(policy) {
+    Ok(()) => {
+        // Success means all future requests use the newly loaded policy.
+        info!(policy_hash = %result.policy_hash, "Policy reloaded successfully");
+    }
+    Err(e) => {
+        // Failure means the previous policy remains active instead of leaving the sandbox in limbo.
+        warn!(
+            version = result.version,
+            error = %e,
+            "Policy reload failed, keeping last-known-good policy"
+        );
+    }
+}
+```
+
+Citation: `crates/openshell-sandbox/src/lib.rs`
+
 ### Q10. How does OpenShell's multi-layer security approach address different attacker models better than single-layer enforcement?
 
 **Short answer:** it maps different attacker capabilities to different defenses, so compromise of one assumption does not automatically collapse the entire security model.
@@ -398,6 +686,69 @@ Single-layer systems typically fail catastrophically when that one layer is bypa
 
 Its architecture is stronger because it distributes enforcement across transport, orchestration, kernel, process identity, outbound request semantics, and secret-handling boundaries.
 
+**Code evidence**
+
+Snippet 1 is the mTLS test intent from `e2e/python/test_security_tls.py`:
+
+```python
+"""E2e tests for server mTLS enforcement.
+
+# Only clients with the provisioned cluster-issued client cert should succeed.
+These tests verify that the OpenShell server correctly requires valid client
+certificates signed by the cluster CA.  Only callers presenting the provisioned
+mTLS client cert should be able to reach the OpenShell gRPC API; all other
+# Missing, rogue, or plaintext clients are expected to fail.
+connection attempts must be rejected.
+"""
+```
+
+Citation: `e2e/python/test_security_tls.py`
+
+Snippet 2 is the SSRF/internal-IP defense from `crates/openshell-sandbox/src/proxy.rs`:
+
+```rust
+/// This is a defense-in-depth check to prevent SSRF via the CONNECT proxy.
+fn is_internal_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            // Reject loopback, RFC1918 private ranges, link-local, and unspecified IPv4.
+            v4.is_loopback() || v4.is_private() || v4.is_link_local() || v4.is_unspecified()
+        }
+        IpAddr::V6(v6) => {
+            // Reject loopback/unspecified IPv6 before checking more specific internal ranges.
+            if v6.is_loopback() || v6.is_unspecified() {
+                return true;
+            }
+            ...
+        }
+    }
+}
+```
+
+Citation: `crates/openshell-sandbox/src/proxy.rs`
+
+Snippet 3 is the direct-proxy-bypass detection from `crates/openshell-sandbox/src/bypass_monitor.rs`:
+
+```rust
+warn!(
+    // Destination details of the attempted direct connection.
+    dst_addr = %event.dst_addr,
+    dst_port = event.dst_port,
+    proto = %event.proto,
+    // Process identity metadata used for attribution.
+    binary = %binary,
+    binary_pid = %binary_pid,
+    ancestors = %ancestors,
+    // Structured classification of the event as a bypass attempt.
+    action = "reject",
+    reason = "direct connection bypassed HTTP CONNECT proxy",
+    hint = hint,
+    "BYPASS_DETECT",
+);
+```
+
+Citation: `crates/openshell-sandbox/src/bypass_monitor.rs`
+
 ## 3. Findings and Conclusion
 
 OpenShell is best understood as a policy-distributed agent runtime rather than a simple sandbox launcher. The repository demonstrates a coherent security architecture where:
@@ -431,523 +782,79 @@ Not every file is equally semantically important. For example:
 
 Even so, the repository-wide inventory informed the report’s conclusions about scope, project maturity, and where enforcement versus documentation versus operational support live.
 
-## Appendix B. Full Repository File Manifest
+## Appendix B. Clean Repository Structure Diagram
 
 ```text
-./.DS_Store
-./.agents/skills/build-from-issue/SKILL.md
-./.agents/skills/create-github-issue/SKILL.md
-./.agents/skills/create-github-pr/SKILL.md
-./.agents/skills/create-spike/SKILL.md
-./.agents/skills/debug-inference/SKILL.md
-./.agents/skills/debug-openshell-cluster/SKILL.md
-./.agents/skills/fix-security-issue/SKILL.md
-./.agents/skills/generate-sandbox-policy/SKILL.md
-./.agents/skills/generate-sandbox-policy/examples.md
-./.agents/skills/openshell-cli/SKILL.md
-./.agents/skills/openshell-cli/cli-reference.md
-./.agents/skills/review-github-pr/SKILL.md
-./.agents/skills/review-security-issue/SKILL.md
-./.agents/skills/sbom/SKILL.md
-./.agents/skills/sync-agent-infra/SKILL.md
-./.agents/skills/triage-issue/SKILL.md
-./.agents/skills/tui-development/SKILL.md
-./.agents/skills/update-docs/SKILL.md
-./.agents/skills/watch-github-actions/SKILL.md
-./.claude/README.md
-./.claude/agent-memory/arch-doc-writer/MEMORY.md
-./.claude/agent-memory/principal-engineer-reviewer/MEMORY.md
-./.claude/agents/arch-doc-writer.md
-./.claude/agents/principal-engineer-reviewer.md
-./.dockerignore
-./.env.example
-./.gitattributes
-./.github/CODEOWNERS
-./.github/DISCUSSION_TEMPLATE/vouch-request.yml
-./.github/ISSUE_TEMPLATE/bug_report.yml
-./.github/ISSUE_TEMPLATE/config.yml
-./.github/ISSUE_TEMPLATE/feature_request.yml
-./.github/PULL_REQUEST_TEMPLATE.md
-./.github/VOUCHED.td
-./.github/actions/setup-buildx/action.yml
-./.github/workflows/branch-checks.yml
-./.github/workflows/branch-e2e.yml
-./.github/workflows/ci-image.yml
-./.github/workflows/dco.yml
-./.github/workflows/docker-build.yml
-./.github/workflows/docs-build.yml
-./.github/workflows/docs-preview-pr.yml
-./.github/workflows/e2e-test.yml
-./.github/workflows/issue-triage.yml
-./.github/workflows/release-auto-tag.yml
-./.github/workflows/release-canary.yml
-./.github/workflows/release-dev.yml
-./.github/workflows/release-tag.yml
-./.github/workflows/test-install.yml
-./.github/workflows/vouch-check.yml
-./.github/workflows/vouch-command.yml
-./.gitignore
-./.idea/.gitignore
-./.idea/OpenShell-main.iml
-./.idea/inspectionProfiles/profiles_settings.xml
-./.idea/misc.xml
-./.idea/modules.xml
-./.idea/workspace.xml
-./.opencode/agents/arch-doc-writer.md
-./.opencode/agents/principal-engineer-reviewer.md
-./.python-version
-./AGENTS.md
-./CLAUDE.md
-./CONTRIBUTING.md
-./Cargo.lock
-./Cargo.toml
-./DCO
-./LICENSE
-./README.md
-./SECURITY.md
-./STYLEGUIDE.md
-./TESTING.md
-./THIRD-PARTY-NOTICES
-./about.toml
-./architecture/README.md
-./architecture/build-containers.md
-./architecture/gateway-deploy-connect.md
-./architecture/gateway-security.md
-./architecture/gateway-settings.md
-./architecture/gateway-single-node.md
-./architecture/gateway.md
-./architecture/inference-routing.md
-./architecture/policy-advisor.md
-./architecture/plans/openshell-reverse-engineering-report.md
-./architecture/sandbox-connect.md
-./architecture/sandbox-custom-containers.md
-./architecture/sandbox-providers.md
-./architecture/sandbox.md
-./architecture/security-policy.md
-./architecture/system-architecture.md
-./architecture/tui.md
-./crates/openshell-bootstrap/Cargo.toml
-./crates/openshell-bootstrap/src/build.rs
-./crates/openshell-bootstrap/src/constants.rs
-./crates/openshell-bootstrap/src/docker.rs
-./crates/openshell-bootstrap/src/edge_token.rs
-./crates/openshell-bootstrap/src/errors.rs
-./crates/openshell-bootstrap/src/image.rs
-./crates/openshell-bootstrap/src/lib.rs
-./crates/openshell-bootstrap/src/metadata.rs
-./crates/openshell-bootstrap/src/mtls.rs
-./crates/openshell-bootstrap/src/pki.rs
-./crates/openshell-bootstrap/src/paths.rs
-./crates/openshell-bootstrap/src/push.rs
-./crates/openshell-bootstrap/src/runtime.rs
-./crates/openshell-cli/Cargo.toml
-./crates/openshell-cli/src/auth.rs
-./crates/openshell-cli/src/bootstrap.rs
-./crates/openshell-cli/src/completers.rs
-./crates/openshell-cli/src/doctor_llm_prompt.md
-./crates/openshell-cli/src/edge_tunnel.rs
-./crates/openshell-cli/src/lib.rs
-./crates/openshell-cli/src/main.rs
-./crates/openshell-cli/src/run.rs
-./crates/openshell-cli/src/ssh.rs
-./crates/openshell-cli/src/tls.rs
-./crates/openshell-cli/tests/ensure_providers_integration.rs
-./crates/openshell-cli/tests/mtls_integration.rs
-./crates/openshell-cli/tests/provider_commands_integration.rs
-./crates/openshell-cli/tests/sandbox_create_lifecycle_integration.rs
-./crates/openshell-cli/tests/sandbox_name_fallback_integration.rs
-./crates/openshell-core/Cargo.toml
-./crates/openshell-core/build.rs
-./crates/openshell-core/src/config.rs
-./crates/openshell-core/src/error.rs
-./crates/openshell-core/src/forward.rs
-./crates/openshell-core/src/inference.rs
-./crates/openshell-core/src/lib.rs
-./crates/openshell-core/src/paths.rs
-./crates/openshell-core/src/proto/mod.rs
-./crates/openshell-core/src/proto/openshell.datamodel.v1.rs
-./crates/openshell-core/src/proto/openshell.sandbox.v1.rs
-./crates/openshell-core/src/proto/openshell.test.v1.rs
-./crates/openshell-core/src/proto/openshell.v1.rs
-./crates/openshell-core/src/settings.rs
-./crates/openshell-ocsf/Cargo.toml
-./crates/openshell-ocsf/schemas/ocsf/README.md
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/VERSION
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/application_lifecycle.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/base_event.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/detection_finding.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/device_config_state_change.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/http_activity.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/network_activity.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/process_activity.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/classes/ssh_activity.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/actor.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/attack.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/connection_info.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/container.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/device.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/evidences.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/finding_info.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/firewall_rule.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/http_request.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/http_response.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/metadata.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/network_endpoint.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/network_proxy.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/process.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/product.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/remediation.json
-./crates/openshell-ocsf/schemas/ocsf/v1.7.0/objects/url.json
-./crates/openshell-ocsf/src/builders/base.rs
-./crates/openshell-ocsf/src/builders/config.rs
-./crates/openshell-ocsf/src/builders/finding.rs
-./crates/openshell-ocsf/src/builders/http.rs
-./crates/openshell-ocsf/src/builders/lifecycle.rs
-./crates/openshell-ocsf/src/builders/mod.rs
-./crates/openshell-ocsf/src/builders/network.rs
-./crates/openshell-ocsf/src/builders/process.rs
-./crates/openshell-ocsf/src/builders/ssh.rs
-./crates/openshell-ocsf/src/enums/action.rs
-./crates/openshell-ocsf/src/enums/activity.rs
-./crates/openshell-ocsf/src/enums/auth.rs
-./crates/openshell-ocsf/src/enums/disposition.rs
-./crates/openshell-ocsf/src/enums/http_method.rs
-./crates/openshell-ocsf/src/enums/launch.rs
-./crates/openshell-ocsf/src/enums/mod.rs
-./crates/openshell-ocsf/src/enums/security.rs
-./crates/openshell-ocsf/src/enums/severity.rs
-./crates/openshell-ocsf/src/enums/status.rs
-./crates/openshell-ocsf/src/events/app_lifecycle.rs
-./crates/openshell-ocsf/src/events/base_event.rs
-./crates/openshell-ocsf/src/events/config_state_change.rs
-./crates/openshell-ocsf/src/events/detection_finding.rs
-./crates/openshell-ocsf/src/events/http_activity.rs
-./crates/openshell-ocsf/src/events/mod.rs
-./crates/openshell-ocsf/src/events/network_activity.rs
-./crates/openshell-ocsf/src/events/process_activity.rs
-./crates/openshell-ocsf/src/events/serde_helpers.rs
-./crates/openshell-ocsf/src/events/ssh_activity.rs
-./crates/openshell-ocsf/src/format/jsonl.rs
-./crates/openshell-ocsf/src/format/mod.rs
-./crates/openshell-ocsf/src/format/shorthand.rs
-./crates/openshell-ocsf/src/lib.rs
-./crates/openshell-ocsf/src/objects/attack.rs
-./crates/openshell-ocsf/src/objects/connection.rs
-./crates/openshell-ocsf/src/objects/container.rs
-./crates/openshell-ocsf/src/objects/device.rs
-./crates/openshell-ocsf/src/objects/endpoint.rs
-./crates/openshell-ocsf/src/objects/finding.rs
-./crates/openshell-ocsf/src/objects/firewall_rule.rs
-./crates/openshell-ocsf/src/objects/http.rs
-./crates/openshell-ocsf/src/objects/metadata.rs
-./crates/openshell-ocsf/src/objects/mod.rs
-./crates/openshell-ocsf/src/objects/process.rs
-./crates/openshell-ocsf/src/tracing_layers/event_bridge.rs
-./crates/openshell-ocsf/src/tracing_layers/jsonl_layer.rs
-./crates/openshell-ocsf/src/tracing_layers/mod.rs
-./crates/openshell-ocsf/src/tracing_layers/shorthand_layer.rs
-./crates/openshell-ocsf/src/validation/mod.rs
-./crates/openshell-ocsf/src/validation/schema.rs
-./crates/openshell-policy/Cargo.toml
-./crates/openshell-policy/src/lib.rs
-./crates/openshell-providers/Cargo.toml
-./crates/openshell-providers/src/context.rs
-./crates/openshell-providers/src/discovery.rs
-./crates/openshell-providers/src/lib.rs
-./crates/openshell-providers/src/providers/anthropic.rs
-./crates/openshell-providers/src/providers/claude.rs
-./crates/openshell-providers/src/providers/codex.rs
-./crates/openshell-providers/src/providers/copilot.rs
-./crates/openshell-providers/src/providers/generic.rs
-./crates/openshell-providers/src/providers/github.rs
-./crates/openshell-providers/src/providers/gitlab.rs
-./crates/openshell-providers/src/providers/mod.rs
-./crates/openshell-providers/src/providers/nvidia.rs
-./crates/openshell-providers/src/providers/openai.rs
-./crates/openshell-providers/src/providers/opencode.rs
-./crates/openshell-providers/src/providers/outlook.rs
-./crates/openshell-providers/src/test_helpers.rs
-./crates/openshell-router/Cargo.toml
-./crates/openshell-router/README.md
-./crates/openshell-router/src/backend.rs
-./crates/openshell-router/src/config.rs
-./crates/openshell-router/src/lib.rs
-./crates/openshell-router/src/mock.rs
-./crates/openshell-router/tests/backend_integration.rs
-./crates/openshell-sandbox/Cargo.toml
-./crates/openshell-sandbox/data/sandbox-policy.rego
-./crates/openshell-sandbox/src/bypass_monitor.rs
-./crates/openshell-sandbox/src/child_env.rs
-./crates/openshell-sandbox/src/denial_aggregator.rs
-./crates/openshell-sandbox/src/grpc_client.rs
-./crates/openshell-sandbox/src/identity.rs
-./crates/openshell-sandbox/src/l7/inference.rs
-./crates/openshell-sandbox/src/l7/mod.rs
-./crates/openshell-sandbox/src/l7/provider.rs
-./crates/openshell-sandbox/src/l7/relay.rs
-./crates/openshell-sandbox/src/l7/rest.rs
-./crates/openshell-sandbox/src/l7/tls.rs
-./crates/openshell-sandbox/src/lib.rs
-./crates/openshell-sandbox/src/log_push.rs
-./crates/openshell-sandbox/src/main.rs
-./crates/openshell-sandbox/src/mechanistic_mapper.rs
-./crates/openshell-sandbox/src/opa.rs
-./crates/openshell-sandbox/src/policy.rs
-./crates/openshell-sandbox/src/process.rs
-./crates/openshell-sandbox/src/procfs.rs
-./crates/openshell-sandbox/src/proxy.rs
-./crates/openshell-sandbox/src/sandbox/linux/landlock.rs
-./crates/openshell-sandbox/src/sandbox/linux/mod.rs
-./crates/openshell-sandbox/src/sandbox/linux/netns.rs
-./crates/openshell-sandbox/src/sandbox/linux/seccomp.rs
-./crates/openshell-sandbox/src/sandbox/mod.rs
-./crates/openshell-sandbox/src/secrets.rs
-./crates/openshell-sandbox/src/ssh.rs
-./crates/openshell-sandbox/testdata/sandbox-policy.yaml
-./crates/openshell-sandbox/tests/system_inference.rs
-./crates/openshell-server/Cargo.toml
-./crates/openshell-server/migrations/postgres/001_create_objects.sql
-./crates/openshell-server/migrations/postgres/002_create_sandbox_policies.sql
-./crates/openshell-server/migrations/postgres/003_create_policy_recommendations.sql
-./crates/openshell-server/migrations/sqlite/001_create_objects.sql
-./crates/openshell-server/migrations/sqlite/002_create_sandbox_policies.sql
-./crates/openshell-server/migrations/sqlite/003_create_policy_recommendations.sql
-./crates/openshell-server/src/auth.rs
-./crates/openshell-server/src/grpc.rs
-./crates/openshell-server/src/http.rs
-./crates/openshell-server/src/inference.rs
-./crates/openshell-server/src/lib.rs
-./crates/openshell-server/src/main.rs
-./crates/openshell-server/src/multiplex.rs
-./crates/openshell-server/src/persistence/mod.rs
-./crates/openshell-server/src/persistence/postgres.rs
-./crates/openshell-server/src/persistence/sqlite.rs
-./crates/openshell-server/src/persistence/tests.rs
-./crates/openshell-server/src/sandbox/mod.rs
-./crates/openshell-server/src/sandbox_index.rs
-./crates/openshell-server/src/sandbox_watch.rs
-./crates/openshell-server/src/ssh_tunnel.rs
-./crates/openshell-server/src/tls.rs
-./crates/openshell-server/src/tracing_bus.rs
-./crates/openshell-server/src/ws_tunnel.rs
-./crates/openshell-server/tests/auth_endpoint_integration.rs
-./crates/openshell-server/tests/edge_tunnel_auth.rs
-./crates/openshell-server/tests/multiplex_integration.rs
-./crates/openshell-server/tests/multiplex_tls_integration.rs
-./crates/openshell-server/tests/ws_tunnel_integration.rs
-./crates/openshell-tui/Cargo.toml
-./crates/openshell-tui/src/app.rs
-./crates/openshell-tui/src/clipboard.rs
-./crates/openshell-tui/src/event.rs
-./crates/openshell-tui/src/lib.rs
-./crates/openshell-tui/src/theme.rs
-./crates/openshell-tui/src/ui/create_provider.rs
-./crates/openshell-tui/src/ui/create_sandbox.rs
-./crates/openshell-tui/src/ui/dashboard.rs
-./crates/openshell-tui/src/ui/global_settings.rs
-./crates/openshell-tui/src/ui/mod.rs
-./crates/openshell-tui/src/ui/providers.rs
-./crates/openshell-tui/src/ui/sandbox_detail.rs
-./crates/openshell-tui/src/ui/sandbox_draft.rs
-./crates/openshell-tui/src/ui/sandbox_logs.rs
-./crates/openshell-tui/src/ui/sandbox_policy.rs
-./crates/openshell-tui/src/ui/sandbox_settings.rs
-./crates/openshell-tui/src/ui/sandboxes.rs
-./crates/openshell-tui/src/ui/splash.rs
-./deploy/docker/.dockerignore
-./deploy/docker/Dockerfile.ci
-./deploy/docker/Dockerfile.cli-macos
-./deploy/docker/Dockerfile.images
-./deploy/docker/Dockerfile.python-wheels
-./deploy/docker/Dockerfile.python-wheels-macos
-./deploy/docker/cluster-entrypoint.sh
-./deploy/docker/cluster-healthcheck.sh
-./deploy/docker/cross-build.sh
-./deploy/helm/openshell/.helmignore
-./deploy/helm/openshell/Chart.yaml
-./deploy/helm/openshell/templates/_helpers.tpl
-./deploy/helm/openshell/templates/clusterrole.yaml
-./deploy/helm/openshell/templates/clusterrolebinding.yaml
-./deploy/helm/openshell/templates/networkpolicy.yaml
-./deploy/helm/openshell/templates/role.yaml
-./deploy/helm/openshell/templates/rolebinding.yaml
-./deploy/helm/openshell/templates/service.yaml
-./deploy/helm/openshell/templates/serviceaccount.yaml
-./deploy/helm/openshell/templates/statefulset.yaml
-./deploy/helm/openshell/values.yaml
-./deploy/kube/gpu-manifests/nvidia-device-plugin-helmchart.yaml
-./deploy/kube/manifests/agent-sandbox.yaml
-./deploy/kube/manifests/openshell-helmchart.yaml
-./deploy/sbom/resolve_licenses.py
-./deploy/sbom/sbom_to_csv.py
-./docs/CONTRIBUTING.md
-./docs/_ext/json_output/README.md
-./docs/_ext/json_output/__init__.py
-./docs/_ext/json_output/config.py
-./docs/_ext/json_output/content/__init__.py
-./docs/_ext/json_output/content/extractor.py
-./docs/_ext/json_output/content/metadata.py
-./docs/_ext/json_output/content/structured.py
-./docs/_ext/json_output/content/text.py
-./docs/_ext/json_output/core/__init__.py
-./docs/_ext/json_output/core/builder.py
-./docs/_ext/json_output/core/document_discovery.py
-./docs/_ext/json_output/core/global_metadata.py
-./docs/_ext/json_output/core/hierarchy_builder.py
-./docs/_ext/json_output/core/json_formatter.py
-./docs/_ext/json_output/core/json_writer.py
-./docs/_ext/json_output/processing/__init__.py
-./docs/_ext/json_output/processing/cache.py
-./docs/_ext/json_output/processing/processor.py
-./docs/_ext/json_output/utils.py
-./docs/_ext/policy_table.py
-./docs/_ext/search_assets/__init__.py
-./docs/_ext/search_assets/enhanced-search.css
-./docs/_ext/search_assets/main.js
-./docs/_ext/search_assets/modules/DocumentLoader.js
-./docs/_ext/search_assets/modules/EventHandler.js
-./docs/_ext/search_assets/modules/ResultRenderer.js
-./docs/_ext/search_assets/modules/SearchEngine.js
-./docs/_ext/search_assets/modules/SearchInterface.js
-./docs/_ext/search_assets/modules/SearchPageManager.js
-./docs/_ext/search_assets/modules/Utils.js
-./docs/_ext/search_assets/templates/search.html
-./docs/_templates/layout.html
-./docs/about/architecture.md
-./docs/about/architecture.svg
-./docs/about/overview.md
-./docs/about/release-notes.md
-./docs/about/supported-agents.md
-./docs/assets/openshell-terminal.png
-./docs/conf.py
-./docs/get-started/quickstart.md
-./docs/index.md
-./docs/inference/configure.md
-./docs/inference/index.md
-./docs/project.json
-./docs/reference/default-policy.md
-./docs/reference/gateway-auth.md
-./docs/reference/policy-schema.md
-./docs/reference/support-matrix.md
-./docs/resources/license.md
-./docs/sandboxes/community-sandboxes.md
-./docs/sandboxes/index.md
-./docs/sandboxes/manage-gateways.md
-./docs/sandboxes/manage-providers.md
-./docs/sandboxes/manage-sandboxes.md
-./docs/sandboxes/policies.md
-./docs/tutorials/first-network-policy.md
-./docs/tutorials/github-sandbox.md
-./docs/tutorials/index.md
-./docs/tutorials/inference-ollama.md
-./docs/tutorials/local-inference-lmstudio.md
-./e2e/install/bash_test.sh
-./e2e/install/fish_test.fish
-./e2e/install/helpers.sh
-./e2e/install/sh_test.sh
-./e2e/install/zsh_test.sh
-./e2e/python/conftest.py
-./e2e/python/test_inference_routing.py
-./e2e/python/test_policy_validation.py
-./e2e/python/test_sandbox_api.py
-./e2e/python/test_sandbox_exec_python.py
-./e2e/python/test_sandbox_gpu.py
-./e2e/python/test_sandbox_policy.py
-./e2e/python/test_sandbox_providers.py
-./e2e/python/test_sandbox_venv.py
-./e2e/python/test_security_tls.py
-./e2e/rust/Cargo.lock
-./e2e/rust/Cargo.toml
-./e2e/rust/src/harness/binary.rs
-./e2e/rust/src/harness/mod.rs
-./e2e/rust/src/harness/output.rs
-./e2e/rust/src/harness/port.rs
-./e2e/rust/src/harness/sandbox.rs
-./e2e/rust/src/lib.rs
-./e2e/rust/tests/cf_auth_smoke.rs
-./e2e/rust/tests/cli_smoke.rs
-./e2e/rust/tests/community_image.rs
-./e2e/rust/tests/custom_image.rs
-./e2e/rust/tests/docker_preflight.rs
-./e2e/rust/tests/edge_tunnel_e2e.rs
-./e2e/rust/tests/forward_proxy_l7_bypass.rs
-./e2e/rust/tests/host_gateway_alias.rs
-./e2e/rust/tests/no_proxy.rs
-./e2e/rust/tests/port_forward.rs
-./e2e/rust/tests/provider_auto_create.rs
-./e2e/rust/tests/sandbox_lifecycle.rs
-./e2e/rust/tests/settings_management.rs
-./e2e/rust/tests/sync.rs
-./e2e/rust/tests/upload_create.rs
-./examples/bring-your-own-container/Dockerfile
-./examples/bring-your-own-container/README.md
-./examples/bring-your-own-container/app.py
-./examples/gateway-deploy-connect.md
-./examples/local-inference/README.md
-./examples/local-inference/inference.py
-./examples/local-inference/routes.yaml
-./examples/local-inference/sandbox-policy.yaml
-./examples/openclaw.md
-./examples/policy-advisor/README.md
-./examples/policy-advisor/ctf.py
-./examples/policy-advisor/sandbox-policy.yaml
-./examples/private-ip-routing/Dockerfile
-./examples/private-ip-routing/README.md
-./examples/private-ip-routing/server.py
-./examples/sandbox-policy-quickstart/README.md
-./examples/sandbox-policy-quickstart/demo.sh
-./examples/sandbox-policy-quickstart/policy.yaml
-./examples/sync-files.md
-./examples/vscode-remote-sandbox.md
-./install.sh
-./mise.toml
-./proto/datamodel.proto
-./proto/inference.proto
-./proto/openshell.proto
-./proto/sandbox.proto
-./proto/test.proto
-./pyproject.toml
-./python/openshell/__init__.py
-./python/openshell/_proto/__init__.py
-./python/openshell/openshell_test.py
-./python/openshell/sandbox.py
-./python/openshell/sandbox_test.py
-./rfc/0000-template.md
-./rfc/README.md
-./scripts/bin/k9s
-./scripts/bin/kubectl
-./scripts/bin/openshell
-./scripts/build-benchmark/README.md
-./scripts/build-benchmark/cluster-deploy-fast-test.sh
-./scripts/docker-cleanup.sh
-./scripts/generate_third_party_notices.py
-./scripts/remote-deploy.sh
-./scripts/smoke-test-network-policy.sh
-./scripts/test-release-tag.sh
-./scripts/update_license_headers.py
-./tasks/ci.toml
-./tasks/cluster.toml
-./tasks/docker.toml
-./tasks/docs.toml
-./tasks/helm.toml
-./tasks/license.toml
-./tasks/notices.toml
-./tasks/publish.toml
-./tasks/python.toml
-./tasks/rust.toml
-./tasks/sandbox.toml
-./tasks/sbom.toml
-./tasks/scripts/cluster-bootstrap.sh
-./tasks/scripts/cluster-deploy-fast.sh
-./tasks/scripts/cluster-push-component.sh
-./tasks/scripts/cluster.sh
-./tasks/scripts/docker-build-ci.sh
-./tasks/scripts/docker-build-image.sh
-./tasks/scripts/docker-publish-multiarch.sh
-./tasks/scripts/release.py
-./tasks/scripts/sandbox.sh
-./tasks/term.toml
-./tasks/test.toml
-./tasks/version.toml
-./uv.lock
+OpenShell-main/
+├── .agents/
+│   └── skills/                       # agent workflows used to build, triage, debug, and review
+├── .claude/                          # Claude-specific local agent metadata
+├── .github/
+│   ├── ISSUE_TEMPLATE/              # bug and feature intake templates
+│   ├── workflows/                   # CI, release, docs, vouch, and test automation
+│   └── CODEOWNERS
+├── .opencode/                        # OpenCode-specific local agent metadata
+├── architecture/
+│   ├── gateway.md                   # gateway/control-plane architecture
+│   ├── gateway-security.md          # mTLS and transport security model
+│   ├── sandbox.md                   # sandbox runtime and enforcement design
+│   ├── sandbox-providers.md         # provider and credential architecture
+│   ├── security-policy.md           # policy language and enforcement mapping
+│   ├── system-architecture.md       # end-to-end system diagram
+│   └── ...                          # additional architecture references
+├── crates/
+│   ├── openshell-bootstrap/         # cluster bootstrap, PKI, image/runtime prep
+│   ├── openshell-cli/               # main CLI
+│   ├── openshell-core/              # shared types, config, generated proto bindings
+│   ├── openshell-ocsf/              # OCSF event/schema support
+│   ├── openshell-policy/            # YAML <-> protobuf policy conversion
+│   ├── openshell-providers/         # provider discovery and normalization
+│   ├── openshell-router/            # inference routing layer
+│   ├── openshell-sandbox/           # sandbox runtime, proxy, OPA, SSH, kernel controls
+│   ├── openshell-server/            # gateway server, persistence, sandbox orchestration
+│   └── openshell-tui/               # terminal UI
+├── deploy/
+│   ├── docker/                      # Dockerfiles and cluster container scripts
+│   ├── helm/                        # Helm chart for OpenShell deployment
+│   ├── kube/                        # Kubernetes manifests
+│   └── sbom/                        # SBOM tooling
+├── docs/
+│   ├── about/                       # overview, architecture, release notes
+│   ├── get-started/                 # quickstart docs
+│   ├── inference/                   # inference configuration docs
+│   ├── reference/                   # policy schema, auth, support matrix
+│   ├── sandboxes/                   # gateway/provider/sandbox management docs
+│   ├── tutorials/                   # guided walkthroughs
+│   ├── _ext/                        # custom Sphinx extensions and search assets
+│   └── conf.py
+├── e2e/
+│   ├── install/                     # shell installer validation
+│   ├── python/                      # Python end-to-end tests
+│   └── rust/                        # Rust end-to-end harness and tests
+├── examples/
+│   ├── bring-your-own-container/    # BYOC example
+│   ├── local-inference/             # local inference routing example
+│   ├── policy-advisor/              # policy recommendation example
+│   ├── private-ip-routing/          # private-IP routing example
+│   └── sandbox-policy-quickstart/   # quickstart policy example
+├── proto/
+│   ├── datamodel.proto              # core data model
+│   ├── inference.proto              # inference service contracts
+│   ├── openshell.proto              # main gateway API
+│   ├── sandbox.proto                # sandbox policy/settings contracts
+│   └── test.proto
+├── python/
+│   └── openshell/                   # Python SDK and tests
+├── rfc/                             # RFC templates and design notes
+├── scripts/                         # helper utilities and binaries
+├── tasks/                           # mise task definitions and task scripts
+├── AGENTS.md                        # agent instructions
+├── CONTRIBUTING.md                  # contributor workflow
+├── Cargo.toml                       # Rust workspace manifest
+├── README.md                        # top-level project overview
+├── SECURITY.md                      # vulnerability reporting policy
+├── install.sh                       # installation script
+├── mise.toml                        # task runner configuration
+├── pyproject.toml                   # Python project metadata
+└── uv.lock                          # Python lockfile
 ```
