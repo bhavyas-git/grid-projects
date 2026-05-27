@@ -1,0 +1,14 @@
+[
+  {
+    "question": "What is IFC's mission and how many member countries does it have?",
+    "ground_truth": "IFC's mission is to end extreme poverty and boost shared prosperity on a livable planet, and it is owned by 186 member countries."
+  },
+  {
+    "question": "What was IFC's Net Income for FY24 and FY23?",
+    "ground_truth": "For FY24, IFC's Net Income was $1,485 million. For FY23, IFC's Net Income was $672 million."
+  },
+  {
+    "question": "Which region had the highest disbursed investment portfolio in FY24?",
+    "ground_truth": "The Asia and Pacific region had the highest disbursed investment portfolio in FY24."
+  }
+]

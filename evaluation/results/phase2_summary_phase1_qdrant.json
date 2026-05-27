@@ -1,0 +1,14 @@
+{
+  "backend": "qdrant",
+  "phase": "phase1",
+  "dataset_path": "/Users/bsama/PycharmProjects/RAG/resources/datasets/rag_evaluation_dataset.csv",
+  "result_rows": 34,
+  "judge_average_score": 8.7647,
+  "ragas": {
+    "faithfulness": 0.9957983193277312,
+    "answer_relevancy": 0.8038917529634312,
+    "context_precision": 0.700653594728667,
+    "context_recall": 0.8088235294117647
+  },
+  "raw_results_path": "/Users/bsama/PycharmProjects/RAG/evaluation/results/phase2_results_phase1_qdrant.csv"
+}

@@ -1,0 +1,14 @@
+{
+  "backend": "faiss",
+  "phase": "phase3",
+  "dataset_path": "/Users/bsama/PycharmProjects/RAG/resources/datasets/rag_evaluation_dataset.csv",
+  "result_rows": 34,
+  "judge_average_score": 8.2647,
+  "ragas": {
+    "faithfulness": 0.9485294117647058,
+    "answer_relevancy": 0.8088430769412194,
+    "context_precision": 0.6977941176127267,
+    "context_recall": 0.8676470588235294
+  },
+  "raw_results_path": "/Users/bsama/PycharmProjects/RAG/evaluation/results/phase2_results_phase3_faiss.csv"
+}

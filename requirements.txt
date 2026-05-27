@@ -1,0 +1,17 @@
+streamlit==1.56.0
+langchain==1.2.15
+langchain-community==0.4.1
+langchain-google-genai==4.2.2
+langchain-qdrant==1.1.0
+faiss-cpu==1.13.2
+qdrant-client==1.17.1
+google-genai==1.73.1
+google-auth==2.49.2
+pymupdf==1.27.2.2
+pandas==3.0.2
+pillow==12.2.0
+langfuse==4.3.1
+ragas==0.4.3
+datasets==4.8.4
+python-dotenv==1.2.2
+sentence-transformers==5.1.1
